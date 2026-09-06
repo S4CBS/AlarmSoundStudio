@@ -1,0 +1,8 @@
+build/
+*.exe
+*.obj
+*.dll
+*.user
+.vs/
+tools/facade-test.ps1
+tools/conv-cs-test/

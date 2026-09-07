@@ -57,7 +57,7 @@ namespace AlarmSoundStudio
         TextBlock status;
         string chosenFile;
         System.Media.SoundPlayer player = new System.Media.SoundPlayer();
-        Button btnAdd, btnApply, btnPlay, btnStop, btnReset;
+        Button btnAdd, btnApply, btnPlay, btnStop, btnReset, btnMod;
         ComboBox cmbTarget;
 
         // палитра
@@ -142,8 +142,9 @@ namespace AlarmSoundStudio
             btnApply = MakeButton("Применить", AccentDim, FgMain, BtnApply_Click, 110);
             btnPlay = MakeButton("▶", BgControl, FgMain, BtnPlay_Click, 40);
             btnStop = MakeButton("■", BgControl, FgMain, BtnStop_Click, 40);
+            btnMod = MakeButton("Имя звука в «Часах»…", BgControl, FgMain, BtnMod_Click, 170);
             btnReset = MakeButton("Сбросить всё", BgControl, FgDim, BtnReset_Click, 110);
-            foreach (var c in new UIElement[] { btnAdd, cmbTarget, btnApply, btnPlay, btnStop, btnReset })
+            foreach (var c in new UIElement[] { btnAdd, cmbTarget, btnApply, btnPlay, btnStop, btnMod, btnReset })
                 controls.Children.Add(c);
             Grid.SetRow(controls, 3);
             root.Children.Add(controls);
@@ -474,6 +475,13 @@ namespace AlarmSoundStudio
             SetStatus("Пользовательские переназначения удалены — система вернулась к своим стандартным звукам.", FgDim);
         }
 
+        void BtnMod_Click(object sender, RoutedEventArgs e)
+        {
+            var w = new ModWindow();
+            w.Owner = this;
+            w.ShowDialog();
+        }
+
         void SetStatus(string text, Brush color)
         {
             status.Text = text;
@@ -558,5 +566,178 @@ namespace AlarmSoundStudio
                 return true;
             } catch { return false; }
         }
+    }
+
+    // ---------- окно "своё имя звука в списке Часов" (мод пакета) ----------
+
+    public class ModWindow : Window
+    {
+        // EN-имена слотов в списке Часов (порядок = слоты 1..10)
+        static readonly string[] EnNames = { "Chimes", "Xylophone", "Chords", "Tap", "Jingle", "Transition", "Descending", "Bounce", "Echo", "Ascending" };
+        static readonly int[] MaxBytes = { 6, 9, 6, 3, 6, 10, 10, 6, 4, 9 };
+
+        ComboBox cmb;
+        TextBox txt;
+        TextBlock hint, status;
+
+        Brush BgWin = Brush("#1E1E26");
+        Brush FgMain = Brush("#ECECEC");
+        Brush FgDim = Brush("#9A9AA8");
+        Brush FgGreen = Brush("#5EE39A");
+        Brush FgRed = Brush("#FF7B7B");
+        Brush Accent = Brush("#4CC2FF");
+        Brush BgControl = Brush("#33333F");
+
+        static Brush Brush(string hex)
+        {
+            var b = new BrushConverter();
+            return (Brush)b.ConvertFromString(hex);
+        }
+
+        public ModWindow()
+        {
+            Title = "Своё имя звука в списке «Часов»";
+            Width = 560; Height = 380;
+            Background = BgWin;
+            FontFamily = new FontFamily("Segoe UI");
+            WindowStartupLocation = WindowStartupLocation.CenterOwner;
+
+            var root = new StackPanel { Margin = new Thickness(20) };
+            root.Children.Add(new TextBlock {
+                Text = "Переопределяет приложение «Часы» модифицированной копией, в которой\nзвук выбранного слота называется так, как вы введёте. Требуется UAC (1 раз).\nБудильники и настройки сохраняются. Откат: «Вернуть оригинал».",
+                Foreground = FgDim, FontSize = 12, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 12)
+            });
+
+            root.Children.Add(new TextBlock { Text = "Слот (позиция в списке «Часов»):", Foreground = FgMain, FontSize = 13 });
+            cmb = new ComboBox { Height = 30, Margin = new Thickness(0, 4, 0, 10) };
+            for (int i = 1; i <= 10; i++) cmb.Items.Add(string.Format("Слот {0} ({1})", i, EnNames[i - 1]));
+            cmb.SelectedIndex = 2;   // "Chords" - умолчание для демонстрации
+            cmb.SelectionChanged += (o, e) => UpdateHint();
+            root.Children.Add(cmb);
+
+            root.Children.Add(new TextBlock { Text = "Новое имя:", Foreground = FgMain, FontSize = 13 });
+            txt = new TextBox { Height = 30, Margin = new Thickness(0, 4, 0, 4), MaxLength = 10, Text = "02601" };
+            txt.TextChanged += (o, e) => UpdateHint();
+            root.Children.Add(txt);
+            hint = new TextBlock { Foreground = FgDim, FontSize = 11, Margin = new Thickness(0, 0, 0, 10) };
+            root.Children.Add(hint);
+
+            var row = new StackPanel { Orientation = Orientation.Horizontal };
+            row.Children.Add(Mk("Применить (UAC)", Accent, Brushes.Black, Apply_Click, 150));
+            row.Children.Add(Mk("Вернуть оригинал «Часов»", BgControl, FgMain, Restore_Click, 200));
+            root.Children.Add(row);
+
+            status = new TextBlock { Foreground = FgDim, FontSize = 12, Margin = new Thickness(0, 12, 0, 0), TextWrapping = TextWrapping.Wrap };
+            root.Children.Add(status);
+
+            Content = root;
+            UpdateHint();
+        }
+
+        Button Mk(string text, Brush bg, Brush fg, RoutedEventHandler onClick, double width)
+        {
+            var b = new Button {
+                Content = text, Width = width, Height = 34, Margin = new Thickness(0, 0, 10, 0),
+                Foreground = fg, Background = bg, BorderThickness = new Thickness(0), Cursor = Cursors.Hand
+            };
+            b.Click += onClick;
+            return b;
+        }
+
+        void UpdateHint()
+        {
+            int slot = cmb.SelectedIndex + 1;
+            int max = MaxBytes[slot - 1];
+            int used = string.IsNullOrEmpty(txt.Text) ? 0 : Encoding.UTF8.GetByteCount(txt.Text);
+            hint.Text = string.Format("Максимум {0} байт UTF-8 у этого слота (кириллица = 2 байта/символ, цифры/латиница = 1). Введено: {1}.", max, used);
+            hint.Foreground = (used > max) ? FgRed : FgDim;
+        }
+
+        void RunPhase(int phase, string stateFile, string renamesJson, string resultFile)
+        {
+            string script = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "tools", "deploy-clock.ps1");
+            var psi = new ProcessStartInfo {
+                FileName = "powershell.exe",
+                Arguments = string.Format(
+                    "-NoProfile -ExecutionPolicy Bypass -File \"{0}\" -Phase {1} -StateFile \"{2}\" -RenamesJson \"{3}\" -ResultFile \"{4}\"",
+                    script, phase, stateFile, renamesJson, resultFile),
+                UseShellExecute = true, CreateNoWindow = true, WindowStyle = ProcessWindowStyle.Hidden
+            };
+            if (phase == 2) { psi.Verb = "runas"; }
+            var p = Process.Start(psi);
+            p.WaitForExit();
+        }
+
+        void Apply_Click(object sender, RoutedEventArgs e)
+        {
+            int slot = cmb.SelectedIndex + 1;
+            int max = MaxBytes[slot - 1];
+            string name = txt.Text.Trim();
+            if (string.IsNullOrEmpty(name)) { SetStatus("Введите имя.", FgDim); return; }
+            if (Encoding.UTF8.GetByteCount(name) > max) { SetStatus("Имя слишком длинное для этого слота.", FgRed); return; }
+
+            string dir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "AlarmSoundStudio");
+            if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+            string stateFile = Path.Combine(dir, "deploy-state.json");
+            string renamesFile = Path.Combine(dir, "deploy-renames.json");
+            string resultFile = Path.Combine(dir, "deploy-result.json");
+            string workRoot = Path.Combine(dir, "mod");
+
+            File.WriteAllText(stateFile, "{\"workroot\":\"" + workRoot.Replace("\\", "\\\\") + "\",\"version\":\"\",\"work\":\"\"}", Encoding.UTF8);
+            File.WriteAllText(renamesFile, "{\"" + slot + "\":\"" + name.Replace("\"", "") + "\"}", Encoding.UTF8);
+            if (File.Exists(resultFile)) File.Delete(resultFile);
+
+            SetStatus("Фаза 1/3: копирование и патч пакета…", FgMain);
+            try { RunPhase(1, stateFile, renamesFile, resultFile); }
+            catch (Exception ex) { SetStatus("Фаза 1: " + ex.Message, FgRed); return; }
+            if (!CheckResult(resultFile)) return;
+
+            SetStatus("Фаза 2/3: снятие оригинала (подтвердите UAC)…", FgMain);
+            try { RunPhase(2, stateFile, renamesFile, resultFile); }
+            catch { SetStatus("UAC-запрос отклонён.", FgRed); return; }
+            if (!CheckResult(resultFile)) return;
+
+            SetStatus("Фаза 3/3: регистрация и запуск…", FgMain);
+            try { RunPhase(3, stateFile, renamesFile, resultFile); }
+            catch (Exception ex) { SetStatus("Фаза 3: " + ex.Message, FgRed); return; }
+            if (!CheckResult(resultFile)) return;
+
+            SetStatus("Готово! Перезапустите «Часы», откройте будильник → список звуков — там ваше имя. Звук слота играет ваш файл.", FgGreen);
+        }
+
+        void Restore_Click(object sender, RoutedEventArgs e)
+        {
+            string dir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "AlarmSoundStudio");
+            string resultFile = Path.Combine(dir, "deploy-result.json");
+            string script = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "tools", "restore-clock.ps1");
+            if (!File.Exists(script)) { SetStatus("restore-clock.ps1 не найден.", FgRed); return; }
+            if (File.Exists(resultFile)) File.Delete(resultFile);
+            var psi = new ProcessStartInfo {
+                FileName = "powershell.exe",
+                Arguments = "-NoProfile -ExecutionPolicy Bypass -File \"" + script + "\" -ResultFile \"" + resultFile + "\"",
+                UseShellExecute = true, CreateNoWindow = true, WindowStyle = ProcessWindowStyle.Hidden, Verb = "runas"
+            };
+            try { Process.Start(psi).WaitForExit(); } catch { SetStatus("UAC-запрос отклонён.", FgRed); return; }
+            SetStatus(File.Exists(resultFile) && File.ReadAllText(resultFile).Contains("\"ok\"")
+                ? "Оригинальные «Часы» восстановлены из бэкапа/Store."
+                : "Не удалось восстановить автоматически — переустановите «Часы» из Microsoft Store.", FgDim);
+        }
+
+        bool CheckResult(string resultFile)
+        {
+            for (int i = 0; i < 10 && !File.Exists(resultFile); i++) System.Threading.Thread.Sleep(200);
+            if (!File.Exists(resultFile)) { SetStatus("Операция не завершилась (нет файла результата).", FgRed); return false; }
+            string res = File.ReadAllText(resultFile);
+            if (res.Contains("\"status\":\"ok\"")) return true;
+            string msg = "неизвестная ошибка";
+            var m2 = System.Text.RegularExpressions.Regex.Match(res, "\"message\":\"(.*)\"\\}");
+            if (m2.Success) msg = m2.Groups[1].Value;
+            SetStatus("Ошибка: " + msg, FgRed);
+            return false;
+        }
+
+        void SetStatus(string t, Brush c) { status.Text = t; status.Foreground = c; }
     }
 }

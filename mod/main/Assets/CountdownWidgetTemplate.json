@@ -1,0 +1,161 @@
+{
+    "type": "AdaptiveCard",
+    "body": [
+        {
+            "type": "ColumnSet",
+            "columns": [
+                {
+                    "type": "Column",
+                    "width": "36px"
+                },
+                {
+                    "type": "Column",
+                    "items": [
+                        {
+                            "type": "Container",
+                            "$data": "${Countdowns}",
+                            "items": [
+                                {
+                                    "type": "TextBlock",
+                                    "text": "${RemainingDays}",
+                                    "horizontalAlignment": "Center",
+                                    "size": "Large",
+                                    "spacing": "None"
+                                }
+                            ],
+                            "backgroundImage": {
+                                "url": "${if($host.hostTheme == \"light\" || $host.hostTheme == \"highcontrastlight\", $data.ProcessBackgroundLight, $data.ProcessBackgroundDark)}"
+                            },
+                            "minHeight": "187px",
+                            "$when": "${$index == $root.Selection}",
+                            "verticalContentAlignment": "Center"
+                        }
+                    ],
+                    "width": "188px",
+                    "spacing": "None",
+                    "verticalContentAlignment": "Center"
+                }
+            ],
+            "$when": "${$host.widgetSize==\"medium\"}"
+        },
+        {
+            "type": "ColumnSet",
+            "columns": [
+                {
+                    "type": "Column",
+                    "width": "36px"
+                },
+                {
+                    "type": "Column",
+                    "items": [
+                        {
+                            "type": "TextBlock",
+                            "$data": "${Countdowns}",
+                            "text": "${RemainingDays}",
+                            "horizontalAlignment": "Center",
+                            "size": "ExtraLarge",
+                            "spacing": "None",
+                            "$when": "${$index == $root.Selection}"
+                        }
+                    ],
+                    "width": "stretch",
+                    "spacing": "None",
+                    "verticalContentAlignment": "Center"
+                },
+                {
+                    "type": "Column",
+                    "width": "36px",
+                    "items": [
+                        {
+                            "type": "Image",
+                            "url": "${if($host.hostTheme == \"light\" || $host.hostTheme == \"highcontrastlight\", $root.EllipsisButtonLight, $root.EllipsisButtonDark)}",
+                            "selectAction": {
+                                "type": "Action.Execute",
+                                "verb": "TEMPCUST"
+                            }
+                        }
+                    ]
+                }
+            ],
+            "$when": "${$host.widgetSize==\"small\"}"
+        },
+        {
+            "type": "ColumnSet",
+            "columns": [
+                {
+                    "type": "Column",
+                    "$data": "${Countdowns}",
+                    "items": [
+                        {
+                            "type": "Container",
+                            "items": [
+                                {
+                                    "type": "ColumnSet",
+                                    "columns": [
+                                        {
+                                            "type": "Column",
+                                            "width": "6px",
+                                            "spacing": "None"
+                                        },
+                                        {
+                                            "type": "Column",
+                                            "width": "6px",
+                                            "items": [
+                                                {
+                                                    "type": "Image",
+                                                    "url": "${Bullet}"
+                                                }
+                                            ],
+                                            "spacing": "None",
+                                            "minHeight": "20px"
+                                        },
+                                        {
+                                            "type": "Column",
+                                            "width": "6px",
+                                            "spacing": "None"
+                                        },
+                                        {
+                                            "type": "Column",
+                                            "width": "auto",
+                                            "items": [
+                                                {
+                                                    "type": "TextBlock",
+                                                    "horizontalAlignment": "Left",
+                                                    "text": "${CountdownName}",
+                                                    "size": "Small"
+                                                }
+                                            ],
+                                            "spacing": "None",
+                                            "minHeight": "20px",
+                                            "verticalContentAlignment": "Center"
+                                        }
+                                    ]
+                                }
+                            ],
+                            "selectAction": {
+                                "type": "Action.Execute",
+                                "verb": "SelectCountdown",
+                                "data": {
+                                    "Select": "${$index}"
+                                },
+                                "tooltip": "${$root.CountdownNameLabel} ${CountdownName}"
+                            },
+                            "verticalContentAlignment": "Center",
+                            "backgroundImage": {
+                                "url": "${if($index == $root.Selection, $root.SelectedBackground, $root.UnselectedBackground)}"
+                            }
+                        }
+                    ],
+                    "width": "stretch",
+                    "height": "stretch",
+                    "minHeight": "40px",
+                    "verticalContentAlignment": "Bottom"
+                }
+            ],
+            "height": "stretch",
+            "spacing": "None"
+        }
+    ],
+    "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+    "version": "1.6"
+}

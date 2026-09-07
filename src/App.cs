@@ -828,7 +828,8 @@ namespace AlarmSoundStudio
         const int GWL_EXSTYLE = -20;
         const int WS_EX_NOACTIVATE = 0x08000000;
         const int WM_HOTKEY = 0x0312;
-        const int HOTKEY_ID = 0xB00B;
+        const int HOTKEY_F9 = 0xB00B;    // просто F9
+        const int HOTKEY_CAS = 0xB00C;   // Ctrl+Alt+S
 
         StackPanel listPanel;
         TextBlock status;
@@ -871,13 +872,17 @@ namespace AlarmSoundStudio
                 var style = GetWindowLong(src.Handle, GWL_EXSTYLE);
                 SetWindowLong(src.Handle, GWL_EXSTYLE, style | WS_EX_NOACTIVATE);
                 src.AddHook(Hook);
-                HotKey.RegisterHotKey(src.Handle, HOTKEY_ID, 0x2u | 0x1u, 0x53u);   // Ctrl+Alt+S
+                HotKey.RegisterHotKey(src.Handle, HOTKEY_F9, 0x0u, 0x78u);            // F9
+                HotKey.RegisterHotKey(src.Handle, HOTKEY_CAS, 0x2u | 0x1u, 0x53u);   // Ctrl+Alt+S
             };
             Closed += (o, e) => {
                 if (follow != null) follow.Stop();
                 try {
                     var src2 = (HwndSource)PresentationSource.FromVisual(this);
-                    if (src2 != null) HotKey.UnregisterHotKey(src2.Handle, HOTKEY_ID);
+                    if (src2 != null) {
+                        HotKey.UnregisterHotKey(src2.Handle, HOTKEY_F9);
+                        HotKey.UnregisterHotKey(src2.Handle, HOTKEY_CAS);
+                    }
                 } catch { }
             };
 
@@ -1077,7 +1082,7 @@ namespace AlarmSoundStudio
 
         IntPtr Hook(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
         {
-            if (msg == WM_HOTKEY && wParam.ToInt32() == HOTKEY_ID) Toggle();
+            if (msg == WM_HOTKEY && (wParam.ToInt32() == HOTKEY_F9 || wParam.ToInt32() == HOTKEY_CAS)) Toggle();
             return IntPtr.Zero;
         }
 

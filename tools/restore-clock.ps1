@@ -8,7 +8,10 @@ param([string]$ResultFile)
 $ErrorActionPreference = 'Continue'
 try {
     $state = Get-Content (Join-Path $env:LOCALAPPDATA 'AlarmSoundStudio\deploy-state.json') -Raw -Encoding UTF8 | ConvertFrom-Json
-    $origCopy = Join-Path $state.WorkRoot 'main-orig'
+    $origCopy = $null
+    foreach ($candDir in @($state.WorkRoot, (Join-Path C:\Users\MoneyFarming 'Documents\Same\AlarmSoundStudio\mod'), (Join-Path C:\Users\MoneyFarming\AppData\Roaming 'AlarmSoundStudio\mod'))) {
+        if (Test-Path (Join-Path $candDir 'main-orig\AppxManifest.xml')) { $origCopy = Join-Path $candDir 'main-orig'; break }
+    }
     $mani = Join-Path $origCopy 'AppxManifest.xml'
     if (-not (Test-Path $mani)) { throw 'эталонная копия main-orig не найдена' }
 

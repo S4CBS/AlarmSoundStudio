@@ -21,14 +21,22 @@ try {
         # ---- Фаза 1: подготовка (без админа) ----
         $work = Join-Path $state.WorkRoot 'main'
         if (Test-Path $work) { Remove-Item $work -Recurse -Force }
-        $orig = Get-AppxPackage Microsoft.WindowsAlarms | Where-Object { $_.InstallLocation -match '_x64__' } | Select-Object -First 1
-        if (-not $orig) { throw 'оригинальный пакет Часов не найден' }
-        # эталонная копия оригинала - для кнопки "Вернуть оригинал" (только если её ещё нет)
+        # источник: если активен наш мод - используем эталон main-orig; иначе оригинал из WindowsApps
         $origCopy = Join-Path $state.WorkRoot 'main-orig'
-        if (-not (Test-Path (Join-Path $origCopy 'AppxManifest.xml'))) {
-            Copy-Item $orig.InstallLocation $origCopy -Recurse -Force
+        $orig = Get-AppxPackage Microsoft.WindowsAlarms | Select-Object -First 1
+        if ($orig -and ($orig.InstallLocation -like "*$($state.WorkRoot)*") -and -not (Test-Path (Join-Path $origCopy 'AppxManifest.xml'))) {
+            throw 'активен мод, но эталон main-orig не найден - сначала «Вернуть оригинал»'
         }
-        Copy-Item $orig.InstallLocation $work -Recurse -Force
+        if (Test-Path (Join-Path $origCopy 'AppxManifest.xml')) {
+            $src = $origCopy
+        } elseif ($orig) {
+            $src = $orig.InstallLocation
+            Copy-Item $src $origCopy -Recurse -Force   # сохраняем эталон для отката
+        } else {
+            throw 'пакет Часов не найден'
+        }
+        Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue
+        Copy-Item $src $work -Recurse -Force
 
         # бэкап данных будильников (переживет удаление пакета)
         $dataDir = "$env:LOCALAPPDATA\Packages\Microsoft.WindowsAlarms_8wekyb3d8bbwe"
@@ -49,7 +57,7 @@ try {
         $anchor = $am[0].Index
 
         $enNames = @('Chimes','Xylophone','Chords','Tap','Jingle','Transition','Descending','Bounce','Echo','Ascending')
-        $renames = $RenamesJson | ConvertFrom-Json
+        $renames = Get-Content $RenamesJson -Raw -Encoding UTF8 | ConvertFrom-Json
         $props = $renames.PSObject.Properties | Sort-Object { [int]$_.Name }
 
         foreach ($prop in $props) {
@@ -66,10 +74,17 @@ try {
                 ($p -gt 0) -and ($b[$p - 1] -eq 0) -and
                 ($p + $pat.Length -lt $b.Length) -and ($b[$p + $pat.Length] -eq 0)
             }
-            if ($candidates.Count -ne 1) { throw "слот $slot ('$enName'): найдено кандидатов $($candidates.Count), ожидался 1" }
+            $newPat = [Text.Encoding]::GetEncoding(28591).GetString($utf8.GetBytes($newName))
+            $already = [regex]::Matches($lat, [regex]::Escape($newPat)) | Where-Object {
+                $p = $_.Index
+                ($p -ge $anchor - 64) -and ($p -le $anchor + 64) -and ($p % 4 -eq 0) -and
+                ($p -gt 0) -and ($b[$p - 1] -eq 0) -and ($b[$p + $newPat.Length] -eq 0)
+            }
+            if ($already.Count -eq 1) { $skipped = $true; continue }
+            if ($candidates.Count -ne 1) { throw "слот ${slot}: не найдено уникальное место для '$enName'" }
             $off = $candidates[0].Index
             $nb = $utf8.GetBytes($newName)
-            if ($nb.Length -gt $enName.Length) { throw "слот ${slot}: '$newName' длиннее '$enName' (латиница/цифры лучше)" }
+            if ($nb.Length -gt $enName.Length) { throw "слот ${slot}: имя '$newName' длиннее '$enName'" }
             $i = $off
             foreach ($byte in $nb) { $b[$i] = $byte; $i++ }
             while ($i -le ($off + $enName.Length)) { $b[$i] = 0; $i++ }

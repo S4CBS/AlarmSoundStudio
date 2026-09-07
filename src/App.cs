@@ -16,6 +16,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Markup;
 using System.Windows.Threading;
 using Microsoft.Win32;
 
@@ -482,6 +483,92 @@ namespace AlarmSoundStudio
         }
     }
 
+    // ==================== тёмные стили контролов ====================
+
+    public static class UiFx
+    {
+        const string ComboTplXaml = @"
+<ControlTemplate xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation'
+                 xmlns:x='http://schemas.microsoft.com/winfx/2006/xaml'
+                 TargetType='ComboBox'>
+  <Grid>
+    <ToggleButton Focusable='False' ClickMode='Press'
+                  IsChecked='{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}'>
+      <ToggleButton.Template>
+        <ControlTemplate TargetType='ToggleButton'>
+          <Border x:Name='bd' Background='#33333F' CornerRadius='8'/>
+          <ControlTemplate.Triggers>
+            <Trigger Property='IsMouseOver' Value='True'>
+              <Setter TargetName='bd' Property='Background' Value='#404052'/>
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </ToggleButton.Template>
+    </ToggleButton>
+    <ContentPresenter Content='{TemplateBinding SelectionBoxItem}'
+                      ContentTemplate='{TemplateBinding SelectionBoxItemTemplate}'
+                      ContentTemplateSelector='{TemplateBinding ItemTemplateSelector}'
+                      Margin='10,0,26,0' VerticalAlignment='Center' HorizontalAlignment='Left'
+                      IsHitTestVisible='False'/>
+    <Path Data='M 0 0 L 4 4 L 8 0 Z' Fill='#9A9AA8' HorizontalAlignment='Right'
+          VerticalAlignment='Center' Margin='0,0,10,0' IsHitTestVisible='False'/>
+    <Popup x:Name='PART_Popup' AllowsTransparency='True' Focusable='False' StaysOpen='True'
+           Placement='Bottom' IsOpen='{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}}'>
+      <Border Background='#2A2A36' BorderBrush='#4CC2FF' BorderThickness='1' CornerRadius='8'
+              MinWidth='{TemplateBinding ActualWidth}' MaxHeight='220' Margin='0,2,0,0'>
+        <ScrollViewer>
+          <ItemsPresenter/>
+        </ScrollViewer>
+      </Border>
+    </Popup>
+  </Grid>
+</ControlTemplate>";
+
+        const string ComboItemXaml = @"
+<Style xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation'
+       TargetType='ComboBoxItem'>
+  <Setter Property='Foreground' Value='#ECECEC'/>
+  <Setter Property='Template'>
+    <Setter.Value>
+      <ControlTemplate TargetType='ComboBoxItem'>
+        <Border x:Name='bd' Background='Transparent' Padding='10,6'>
+          <ContentPresenter/>
+        </Border>
+        <ControlTemplate.Triggers>
+          <Trigger Property='IsHighlighted' Value='True'>
+            <Setter TargetName='bd' Property='Background' Value='#404052'/>
+          </Trigger>
+          <Trigger Property='IsSelected' Value='True'>
+            <Setter TargetName='bd' Property='Background' Value='#2A6E8F'/>
+          </Trigger>
+        </ControlTemplate.Triggers>
+      </ControlTemplate>
+    </Setter.Value>
+  </Setter>
+</Style>";
+
+        static ControlTemplate comboTpl;
+        static Style comboItemStyle;
+
+        public static void StyleCombo(ComboBox c)
+        {
+            try {
+                if (comboTpl == null) comboTpl = (ControlTemplate)XamlReader.Parse(ComboTplXaml);
+                if (comboItemStyle == null) comboItemStyle = (Style)XamlReader.Parse(ComboItemXaml);
+                c.Template = comboTpl;
+                c.ItemContainerStyle = comboItemStyle;
+            } catch { }
+        }
+
+        public static void StyleTextBox(TextBox t)
+        {
+            t.Background = new BrushConverter().ConvertFromString("#33333F") as Brush;
+            t.Foreground = new BrushConverter().ConvertFromString("#ECECEC") as Brush;
+            t.CaretBrush = new BrushConverter().ConvertFromString("#ECECEC") as Brush;
+            t.BorderBrush = new BrushConverter().ConvertFromString("#4CC2FF") as Brush;
+        }
+    }
+
     public class MainWindow : Window
     {
         List<CardRefs> cards;
@@ -540,6 +627,7 @@ namespace AlarmSoundStudio
             cmbLang.Items.Add("Русский");
             cmbLang.Items.Add("English");
             cmbLang.SelectedIndex = (Cfg.Lang == "en") ? 1 : 0;
+            UiFx.StyleCombo(cmbLang);
             cmbLang.SelectionChanged += CmbLang_Changed;
             langPanel.Children.Add(cmbLang);
             Grid.SetColumn(langPanel, 1);
@@ -572,6 +660,7 @@ namespace AlarmSoundStudio
             cmbTarget.Items.Add(L.T("allSlots"));
             foreach (var s in allSlots) cmbTarget.Items.Add(string.Format(L.T("slotFmt"), s.Index));
             if (allSlots.Length > 0) cmbTarget.SelectedIndex = 0;
+            UiFx.StyleCombo(cmbTarget);
             btnApply = MkButton(L.T("apply"), AccentDim, FgMain, BtnApply_Click, 110);
             btnPlay = MkButton(L.T("play"), BgControl, FgMain, BtnPlay_Click, 40);
             btnStop = MkButton(L.T("stop"), BgControl, FgMain, BtnStop_Click, 40);
@@ -920,6 +1009,7 @@ namespace AlarmSoundStudio
             cmb = new ComboBox { Height = 26, Width = 88, FontSize = 11, Margin = new Thickness(4, 0, 4, 0), Background = BgControl, Foreground = FgMain };
             for (int i = 1; i <= 10; i++) cmb.Items.Add(string.Format(L.T("slotFmt"), i));
             if (Core.GetSlots().Length > 0) cmb.SelectedIndex = 0;
+            UiFx.StyleCombo(cmb);
             btnApply = Mk(L.T("ovApply"), Accent, Brushes.Black, 78, BtnApply_Click);
             controls.Children.Add(btnAdd);
             controls.Children.Add(cmb);
@@ -1144,11 +1234,13 @@ namespace AlarmSoundStudio
             cmb = new ComboBox { Height = 30, Margin = new Thickness(0, 4, 0, 10) };
             for (int i = 1; i <= 10; i++) cmb.Items.Add(string.Format(L.T("slotFmt"), i) + "  (" + EnNames[i - 1] + ")");
             cmb.SelectedIndex = 2;
+            UiFx.StyleCombo(cmb);
             cmb.SelectionChanged += (o, e) => UpdateHint();
             root.Children.Add(cmb);
 
             root.Children.Add(new TextBlock { Text = L.T("modName"), Foreground = FgMain, FontSize = 13 });
             txt = new TextBox { Height = 30, Margin = new Thickness(0, 4, 0, 4), MaxLength = 10, Text = "02601" };
+            UiFx.StyleTextBox(txt);
             txt.TextChanged += (o, e) => UpdateHint();
             root.Children.Add(txt);
             hint = new TextBlock { Foreground = FgDim, FontSize = 11, Margin = new Thickness(0, 0, 0, 10) };

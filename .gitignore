@@ -6,3 +6,10 @@ build/
 .vs/
 tools/facade-test.ps1
 tools/conv-cs-test/
+
+mod/
+tools/activate-test.ps1
+tools/proc-trace.ps1
+tools/ace-test.ps1
+tools/elev-diag*.ps1
+tools/remove-allusers.ps1
